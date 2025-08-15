@@ -11,12 +11,13 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - PM2_HOME=/app/.pm2
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          cpus: "1.0"
-          memory: 2G
+          cpus: "2.0"
+          memory: 4G
         reservations:
-          cpus: "1.0"
-          memory: 2G
+          cpus: "2.0"
+          memory: 4G

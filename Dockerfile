@@ -4,6 +4,9 @@ FROM node:18-alpine
 # Set working directory in container
 WORKDIR /app
 
+# Install PM2 globally
+RUN npm install -g pm2
+
 # Copy package files first for better caching
 COPY package*.json ./
 
@@ -13,14 +16,14 @@ RUN npm ci
 # Copy application source code
 COPY . .
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-RUN chown -R nodejs:nodejs /app
-USER nodejs
+# Copy PM2 configuration
+COPY ecosystem.config.js ./
+
+# Create PM2 directory and logs directory
+RUN mkdir -p /app/.pm2 /app/logs
 
 # Expose the port the app runs on
 EXPOSE 3000
 
-# Start the application using the start script
-CMD ["npm", "start"] 
+# Start the application with PM2
+CMD ["pm2-runtime", "start", "ecosystem.config.js"] 
