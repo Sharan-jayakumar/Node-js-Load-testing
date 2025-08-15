@@ -1,6 +1,6 @@
 # Node.js Load Testing Server
 
-A comprehensive Express.js server setup with PostgreSQL database integration using Sequelize ORM, designed for load testing purposes.
+A comprehensive Express.js server setup with **PM2 process manager**, PostgreSQL database integration using Sequelize ORM, and Docker containerization, designed for load testing purposes with optimized resource allocation.
 
 ## Project Structure
 
@@ -14,16 +14,20 @@ src/
 ├── scripts/         # Database seeding scripts
 ├── services/        # Business logic
 └── server.js        # Main server file
+ecosystem.config.js  # PM2 configuration for cluster mode
+docker-compose.yml   # Multi-container setup with resource limits
+Dockerfile          # PM2-enabled container configuration
 ```
 
 ## Features
 
 - **Express.js** web framework with security middleware
+- **PM2 Process Manager** with cluster mode for load balancing
 - **PostgreSQL** database with **Sequelize ORM**
 - **Task Management API** with full CRUD operations
 - **Date Calculation API** for time difference calculations
-- **Docker** containerization with PostgreSQL
-- **Load Testing Ready** - optimized for performance testing
+- **Docker** containerization with PostgreSQL and resource management
+- **Load Testing Ready** - optimized for performance testing with 2 cores and 4GB RAM
 
 ## Setup
 
@@ -47,6 +51,7 @@ The application uses environment variables for configuration. For Docker deploym
 # Server Configuration
 PORT=3000
 NODE_ENV=production
+PM2_HOME=/app/.pm2
 
 # Database Configuration
 DB_HOST=postgres
@@ -64,8 +69,11 @@ DB_PASSWORD=postgres123
 # Build and start all services
 docker-compose up --build -d
 
-# View logs
+# View application logs
 docker-compose logs -f app
+
+# View database logs
+docker-compose logs -f postgres
 
 # Stop services
 docker-compose down
@@ -74,12 +82,102 @@ docker-compose down
 #### Option B: Local Development
 
 ```bash
-# Start the server with nodemon
+# Start the server with PM2 in development mode
 npm run dev
 
-# Start the server in production mode
+# Start the server with PM2 in production mode
 npm start
+
+# View PM2 logs
+npm run logs
+
+# Monitor PM2 processes
+npm run monit
 ```
+
+## PM2 Configuration
+
+### Cluster Mode Setup
+
+The application runs with **PM2 cluster mode** for optimal performance:
+
+- **2 Node.js instances** (1 per CPU core)
+- **Automatic load balancing** across instances
+- **Process monitoring** and auto-restart
+- **Centralized logging** for all instances
+
+### PM2 Management Commands
+
+```bash
+# Start PM2 processes
+npm start
+
+# Stop PM2 processes
+npm run stop
+
+# Restart PM2 processes
+npm run restart
+
+# Delete PM2 processes
+npm run delete
+
+# View PM2 logs
+npm run logs
+
+# Monitor PM2 processes
+npm run monit
+```
+
+### PM2 Configuration File
+
+The `ecosystem.config.js` file configures:
+
+- **Cluster mode** with 2 instances
+- **Memory management** with restart limits
+- **Logging** to separate files
+- **Process reliability** settings
+
+## Docker Setup
+
+### Multi-Container Architecture
+
+The setup includes two containers with resource management:
+
+1. **Node.js App Container** (with PM2)
+
+   - **CPU**: 2 cores
+   - **Memory**: 4GB
+   - **Port**: 3000
+
+2. **PostgreSQL Database Container**
+   - **CPU**: 1 core
+   - **Memory**: 2GB
+   - **Port**: 5432
+
+### Quick Start with Docker Compose
+
+```bash
+# Build and start all services
+docker-compose up --build
+
+# Run in background
+docker-compose up -d --build
+
+# Stop all services
+docker-compose down
+
+# View resource usage
+docker stats
+```
+
+### Docker Features
+
+- **PM2 integration** for process management
+- **Resource limits** for predictable performance
+- **Persistent PostgreSQL data** with volumes
+- **Network isolation** between containers
+- **Environment variable** support
+- **Health monitoring** capabilities
 
 ## Database Setup
 
@@ -90,6 +188,7 @@ The application automatically:
 - Connects to PostgreSQL database
 - Creates the `tasks` table if it doesn't exist
 - Syncs all Sequelize models
+- Handles connection retries and failures
 
 ### Task Table Schema
 
@@ -181,62 +280,38 @@ DELETE /api/tasks/:id
 
 ## Available Scripts
 
-- `npm start` - Start the server
-- `npm run dev` - Start the server with nodemon for development
+- `npm start` - Start the server with PM2
+- `npm run dev` - Start the server with PM2 in development mode
+- `npm run stop` - Stop PM2 processes
+- `npm run restart` - Restart PM2 processes
+- `npm run delete` - Delete PM2 processes
+- `npm run logs` - View PM2 logs
+- `npm run monit` - Monitor PM2 processes
 - `npm run db:seed` - Seed the database with sample tasks
-- `npm test` - Run tests (placeholder)
-
-## Docker Setup
-
-### Quick Start with Docker Compose
-
-1. **Build and run with Docker Compose:**
-
-   ```bash
-   # Build and start the container
-   docker-compose up --build
-
-   # Run in background
-   docker-compose up -d --build
-
-   # Stop the container
-   docker-compose down
-   ```
-
-2. **Manual Docker commands:**
-
-   ```bash
-   # Build the image
-   docker build -t node-load-testing .
-
-   # Run the container
-   docker run -p 3000:3000 --env-file .env node-load-testing
-   ```
-
-### Docker Features
-
-- **Multi-stage build** for optimized image size
-- **Non-root user** for security
-- **Health checks** for container monitoring
-- **Environment variable** support
-- **Port mapping** (3000:3000)
-- **PostgreSQL integration** with persistent data
 
 ## Load Testing
 
-This server is designed to be simple and lightweight for load testing purposes. You can use tools like:
+This server is optimized for load testing with PM2 cluster mode and Docker resource management:
 
-- **Apache Bench (ab)**
-- **Artillery**
-- **k6** (see `k_6_load_testing_doc.md` for detailed setup)
-- **JMeter**
-- **LoadRunner**
+### Resource Allocation
+
+- **2 CPU cores** for Node.js processes
+- **4GB RAM** for application and PM2
+- **2 PM2 instances** for load distribution
 
 ### Recommended Test Endpoints
 
-- `/health` - Lightweight health check
-- `/api/tasks` - Database query endpoint
-- `/api/calculate-date?date=01-01-2000` - CPU-intensive calculation
+- `/health` - Lightweight health check (PM2 load balanced)
+- `/api/tasks` - Database query endpoint (PM2 load balanced)
+- `/api/calculate-date?date=01-01-2000` - CPU-intensive calculation (PM2 load balanced)
+
+### Load Testing Tools
+
+- **k6** (see `k_6_load_testing_doc.md` for detailed setup)
+- **Apache Bench (ab)**
+- **Artillery**
+- **JMeter**
+- **LoadRunner**
 
 ## Dependencies
 
@@ -265,6 +340,7 @@ The application uses Sequelize ORM with the following features:
 - **Soft deletes** (deleted_at) for data preservation
 - **Snake_case** column naming convention
 - **Retry logic** for database connection failures
+- **PM2 integration** for process management
 
 ## Troubleshooting
 
@@ -276,14 +352,21 @@ The application uses Sequelize ORM with the following features:
    - Check environment variables in docker-compose.yml
    - Verify network connectivity between containers
 
-2. **Port Already in Use**
+2. **PM2 Process Issues**
+
+   - Check PM2 logs: `npm run logs`
+   - Monitor processes: `npm run monit`
+   - Restart processes: `npm run restart`
+
+3. **Port Already in Use**
 
    - Change PORT in environment or docker-compose.yml
    - Stop other services using port 3000
 
-3. **Permission Denied**
-   - Ensure Docker has proper permissions
-   - Check file ownership in the project directory
+4. **Resource Limits**
+
+   - Monitor container resources: `docker stats`
+   - Adjust CPU/memory limits in docker-compose.yml
 
 ### Logs and Debugging
 
@@ -294,6 +377,31 @@ docker-compose logs -f app
 # View database logs
 docker-compose logs -f postgres
 
+# View PM2 logs
+npm run logs
+
+# Monitor PM2 processes
+npm run monit
+
 # Access database directly
 docker exec -it postgres-db psql -U postgres -d loadtesting
+
+# Check container resources
+docker stats node-load-testing-app postgres-db
+```
+
+### PM2 Troubleshooting
+
+```bash
+# Check PM2 status
+docker exec -it node-load-testing-app pm2 status
+
+# View PM2 logs
+docker exec -it node-load-testing-app pm2 logs
+
+# Restart PM2 processes
+docker exec -it node-load-testing-app pm2 restart all
+
+# Delete and restart PM2 processes
+docker exec -it node-load-testing-app pm2 delete all && pm2 start ecosystem.config.js
 ```
