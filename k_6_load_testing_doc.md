@@ -1,0 +1,192 @@
+# K6 Load Testing & Monitoring Guide
+
+## **Configuration**
+
+- **N (Total Requests per run)**: 5000 (constant)
+- **C (Concurrency)**: Incremental per run → 100, 200, 500, 1000
+- **Thresholds**:
+  - Error rate `< 1%`
+  - p95 latency `< 250 ms`
+  - p99 latency `< 500 ms`
+- **Max Duration**: 5 minutes (extend if endpoint is slow)
+
+---
+
+## **1. k6 Test Script**
+
+Create `test.js`:
+
+```js
+import http from 'k6/http';
+import { check } from 'k6';
+
+const TARGET = __ENV.TARGET || 'http://localhost:3000';
+const PATH   = __ENV.PATH   || '/health';
+const C      = Number(__ENV.C || 100);
+const N      = Number(__ENV.N || 5000);
+
+export const options = {
+  scenarios: {
+    fixedN: {
+      executor: 'shared-iterations',
+      vus: C,
+      iterations: N,
+      maxDuration: __ENV.MAXD || '5m'
+    }
+  },
+  thresholds: {
+    http_req_failed: ['rate<0.01'],
+    http_req_duration: ['p(95)<250','p(99)<500']
+  }
+};
+
+export default function () {
+  const res = http.get(`${TARGET}${PATH}`);
+  check(res, { 'status 2xx': r => r.status >= 200 && r.status < 300 });
+}
+```
+
+Run a single test:
+
+```bash
+k6 run test.js -e TARGET=http://localhost:3000 -e PATH=/health -e N=5000 -e C=100 --summary-export out_c100.json
+```
+
+---
+
+## **2. Sweep Concurrency Values**
+
+```bash
+for c in 100 200 500 1000; do
+  k6 run test.js \
+    -e TARGET=http://localhost:3000 \
+    -e PATH=/health \
+    -e N=5000 -e C=$c -e MAXD=5m \
+    --summary-export "out_c${c}.json"
+done
+```
+
+---
+
+## **3. Convert k6 JSON Outputs to CSV**
+
+```bash
+echo "concurrency,total_requests,rps,approx_duration_s,error_rate,p95_ms,p99_ms" > k6_summary.csv
+for f in out_c*.json; do
+  c=$(echo "$f" | sed -E 's/.*out_c([0-9]+).json/\1/')
+  count=$(jq '.metrics.http_reqs.count' "$f")
+  rps=$(jq '.metrics.http_reqs.rate' "$f")
+  err=$(jq '.metrics.http_req_failed.rate' "$f")
+  p95=$(jq '.metrics.http_req_duration.percentiles["95.0"]' "$f")
+  p99=$(jq '.metrics.http_req_duration.percentiles["99.0"]' "$f")
+  dur=$(python3 - <<EOF
+count=$count; rps=$rps
+print(round(count/ rps, 3) if rps>0 else 0)
+EOF
+)
+  echo "$c,$count,$rps,$dur,$err,$p95,$p99" >> k6_summary.csv
+done
+```
+
+---
+
+## **4. CPU/RAM Monitoring Scripts**
+
+### **Host-based Monitoring (non-Docker)**
+
+```bash
+#!/usr/bin/env bash
+OUT="${1:-usage.csv}"
+echo "ts,app_cpu_total,app_rss_mb_total,db_cpu_total,db_rss_mb_total" > "$OUT"
+
+while :; do
+  ts=$(date +%s)
+  read app_cpu app_rss <<<"$(ps -Ao comm,%cpu,rss | egrep '(^node$|^ruby$|puma:)' \
+    | awk '{cpu+=$2; rss+=$3} END{printf "%.1f %.2f", cpu, rss/1024}')"
+  read db_cpu db_rss <<<"$(ps -Ao comm,%cpu,rss | egrep '^postgres' \
+    | awk '{cpu+=$2; rss+=$3} END{printf "%.1f %.2f", cpu, rss/1024}')"
+  echo "$ts,${app_cpu:-0},${app_rss:-0},${db_cpu:-0},${db_rss:-0}" >> "$OUT"
+  sleep 1
+done
+```
+
+Run:
+
+```bash
+./monitor.sh usage_c100.csv & MON_PID=$!
+k6 run test.js -e TARGET=http://localhost:3000 -e PATH=/health -e N=5000 -e C=100 --summary-export out_c100.json
+kill $MON_PID
+```
+
+### **Docker Container Monitoring**
+
+```bash
+#!/usr/bin/env bash
+# monitor_docker.sh
+# Usage: ./monitor_docker.sh web db > usage_docker.csv
+echo "ts,container,cpu_pct,mem_used,mem_limit,mem_pct,net_io,blk_io"
+while :; do
+  ts=$(date +%s)
+  docker stats --no-stream --format \
+'{{.Name}},{{.CPUPerc}},{{.MemUsage}},{{.MemPerc}},{{.NetIO}},{{.BlockIO}}' "$@" \
+  | while IFS=, read -r name cpu mem mempct net blk; do
+      echo "$ts,$name,$cpu,$mem,$mempct,$net,$blk"
+    done
+  sleep 1
+done
+```
+
+Run:
+
+```bash
+./monitor_docker.sh web db > usage_c100.csv & MON_PID=$!
+k6 run test.js -e TARGET=http://localhost:3000 -e PATH=/health -e N=5000 -e C=100 --summary-export out_c100.json
+kill $MON_PID
+```
+
+---
+
+## **5. Recommended Scenarios**
+
+**CPU-light:**
+
+1. Node.js + Express (single)
+2. Node.js + Express + PM2 (4 cores)
+3. NestJS + Fastify (single)
+4. NestJS + Fastify + PM2 (4 cores)
+5. Rails + Puma (single)
+6. Rails + Puma (cluster: 4 cores)
+
+**DB-read:**
+
+1. Node.js + Express + Sequelize (single)
+2. Node.js + Express + Sequelize + PM2 (4 cores)
+3. NestJS + Fastify + TypeORM (single)
+4. NestJS + Fastify + TypeORM + PM2 (4 cores)
+5. Rails + Puma + ActiveRecord (single)
+6. Rails + Puma + ActiveRecord (cluster: 4 cores)
+
+---
+
+## **6. Dockerization Advice**
+
+- **Not mandatory** for local M1 testing.
+- Native runs → better raw performance readings.
+- Use Docker **only if**:
+  - You want reproducible resource limits per service.
+  - You want to mimic production container behavior.
+- If containerizing:
+  - Use arm64 images.
+  - Allocate \~4 cores / 4GB to Docker Desktop.
+  - Set per-container CPU/mem limits.
+
+---
+
+## **7. Run Order per Scenario**
+
+1. Start monitoring: `./monitor.sh usage_c${C}.csv & MON_PID=$!` *(or ****\`\`**** for Docker)*
+2. Run k6: `k6 run test.js -e TARGET=... -e PATH=... -e N=5000 -e C=${C} --summary-export out_c${C}.json`
+3. Stop monitoring: `kill $MON_PID`
+4. Repeat for all C values.
+5. Extract CSV after all runs.
+
