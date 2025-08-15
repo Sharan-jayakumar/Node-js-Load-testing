@@ -11,7 +11,15 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - PM2_HOME=/app/.pm2
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=loadtesting
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres123
     restart: unless-stopped
+    depends_on:
+      - postgres
     deploy:
       resources:
         limits:
@@ -20,3 +28,36 @@ services:
         reservations:
           cpus: "1.0"
           memory: 2G
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=loadtesting
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+        reservations:
+          cpus: "1.0"
+          memory: 2G
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge

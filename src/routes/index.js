@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 
 // Import other route files
-const dateRoutes = require('./dateRoutes');
+const dateRoutes = require("./dateRoutes");
+const taskRoutes = require("./taskRoutes");
 
 // Base route
 router.get("/", (req, res) => {
@@ -12,11 +13,13 @@ router.get("/", (req, res) => {
     endpoints: {
       health: "/health",
       api: "/api",
+      tasks: "/api/tasks",
     },
   });
 });
 
 // Mount other routes
-router.use('/', dateRoutes);
+router.use("/", dateRoutes);
+router.use("/tasks", taskRoutes);
 
 module.exports = router;
