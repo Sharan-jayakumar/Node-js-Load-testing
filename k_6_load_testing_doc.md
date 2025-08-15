@@ -160,11 +160,11 @@ kill $MON_PID
 **DB-read:**
 
 1. Node.js + Express + Sequelize (single)
-2. Node.js + Express + Sequelize + PM2 (4 cores)
+2. Node.js + Express + Sequelize + PM2 (2 cores)
 3. NestJS + Fastify + TypeORM (single)
-4. NestJS + Fastify + TypeORM + PM2 (4 cores)
+4. NestJS + Fastify + TypeORM + PM2 (2 cores)
 5. Rails + Puma + ActiveRecord (single)
-6. Rails + Puma + ActiveRecord (cluster: 4 cores)
+6. Rails + Puma + ActiveRecord (cluster: 2 cores)
 
 ---
 
@@ -177,7 +177,7 @@ kill $MON_PID
   - You want to mimic production container behavior.
 - If containerizing:
   - Use arm64 images.
-  - Allocate \~4 cores / 4GB to Docker Desktop.
+  - Allocate \~2 cores / 4GB to Docker Desktop.
   - Set per-container CPU/mem limits.
 
 ---
