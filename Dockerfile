@@ -1,5 +1,5 @@
 # Use Node.js 18 LTS as base image
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Set working directory in container
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install ALL dependencies (including dev dependencies for npm start)
-RUN npm ci
+RUN npm install
 
 # Copy application source code
 COPY . .
