@@ -29,8 +29,8 @@ export const options = {
       rate: C,
       timeUnit: "1s", // Rate per second
       duration: `${Math.ceil(N / C)}s`, // Calculate duration
-      preAllocatedVUs: C, // Pre-allocate VUs for efficiency
-      maxVUs: C, // Maximum VUs if needed
+      preAllocatedVUs: 100, // Pre-allocate VUs for efficiency
+      maxVUs: 1000, // Maximum VUs if needed
     },
   },
   thresholds: {
