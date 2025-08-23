@@ -96,8 +96,9 @@ for f in test_reports/out_c*.json; do
   count=$(jq -r '.metrics.http_reqs.count // 0' "$f")
   rps=$(jq -r '.metrics.http_reqs.rate // 0' "$f")
 
-  # http_req_failed may expose .rate or only .value depending on k6 version/output
-  err=$(jq -r '.metrics.http_req_failed.rate? // .metrics.http_req_failed.value? // 0' "$f")
+  # Calculate error rate as percentage from failed count vs total count
+  failed_count=$(jq -r '.metrics.http_req_failed.value // 0' "$f")
+  err=$(awk -v failed="$failed_count" -v total="$count" 'BEGIN {printf "%.2f", (failed/total)*100}')
 
   # Prefer successful responses bucket if present, else overall
   p90=$(jq -r '
