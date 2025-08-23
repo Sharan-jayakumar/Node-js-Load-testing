@@ -96,9 +96,9 @@ for f in test_reports/out_c*.json; do
   count=$(jq -r '.metrics.http_reqs.count // 0' "$f")
   rps=$(jq -r '.metrics.http_reqs.rate // 0' "$f")
 
-  # Calculate error rate as percentage from failed count vs total count
-  failed_count=$(jq -r '.metrics.http_req_failed.value // 0' "$f")
-  err=$(awk -v failed="$failed_count" -v total="$count" 'BEGIN {printf "%.2f", (failed/total)*100}')
+  # Convert error rate from decimal (0-1) to percentage (0.00-100.00)
+  failed_decimal=$(jq -r '.metrics.http_req_failed.value // 0' "$f")
+  err=$(awk -v failed="$failed_decimal" 'BEGIN {printf "%.2f", failed*100}')
 
   # Prefer successful responses bucket if present, else overall
   p90=$(jq -r '
@@ -205,9 +205,8 @@ kill $MON_PID
 
 ## **7. Run Order per Scenario**
 
-1. Start monitoring: `./monitor.sh usage_c${C}.csv & MON_PID=$!` *(or ****\`\`**** for Docker)*
+1. Start monitoring: `./monitor.sh usage_c${C}.csv & MON_PID=$!` _(or \***\*\`\`\*\*** for Docker)_
 2. Run k6: `k6 run test.js -e TARGET=... -e PATH=... -e N=5000 -e C=${C} --summary-export out_c${C}.json`
 3. Stop monitoring: `kill $MON_PID`
 4. Repeat for all C values.
 5. Extract CSV after all runs.
-
