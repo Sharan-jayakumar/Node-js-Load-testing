@@ -2,7 +2,7 @@
 
 ## **Configuration**
 
-- **N (Total Requests per run)**: 10000 (constant)
+- **N (Total Requests per run)**: 5000 (constant)
 - **C (Concurrency)**: Incremental per run → 100, 200, 500, 1000
 - **Thresholds**:
   - Error rate `< 1%`
@@ -41,14 +41,15 @@ function getRandomDate() {
 }
 
 export const options = {
+  discardResponseBodies: true,
   scenarios: {
     constantRequestsPerSecond: {
       executor: "constant-arrival-rate",
       rate: C,
       timeUnit: "1s", // Rate per second
       duration: `${Math.ceil(N / C)}s`, // Calculate duration
-      preAllocatedVUs: C, // Pre-allocate VUs for efficiency
-      maxVUs: C, // Maximum VUs if needed
+      preAllocatedVUs: 100, // Pre-allocate VUs for efficiency
+      maxVUs: 1000, // Maximum VUs if needed
     },
   },
   thresholds: {
@@ -69,7 +70,7 @@ export default function () {
 Run a single test:
 
 ```bash
-k6 run load_test.js -e N=10000 -e C=500 --summary-export test_reports/out_c500.json
+k6 run load_test.js -e N=5000 -e C=500 --summary-export test_reports/out_c500.json
 ```
 
 ---
@@ -79,7 +80,7 @@ k6 run load_test.js -e N=10000 -e C=500 --summary-export test_reports/out_c500.j
 ```bash
 for c in 500 600 1000 2000; do
   k6 run load_test.js \
-    -e N=10000 -e C=$c -e MAXD=5m \
+    -e N=5000 -e C=$c -e MAXD=5m \
     --summary-export "test_reports/out_c${c}.json"
 done
 ```
@@ -161,7 +162,7 @@ Run:
 
 ```bash
 ./monitor_docker.sh node-load-testing-app > test_reports/usage_c500.csv & MON_PID=$!
-k6 run load_test.js -e N=10000 -e C=500 --summary-export test_reports/out_c500.json
+k6 run load_test.js -e N=5000 -e C=500 --summary-export test_reports/out_c500.json
 kill $MON_PID
 ```
 
