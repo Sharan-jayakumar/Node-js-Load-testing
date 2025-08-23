@@ -12,6 +12,10 @@ services:
       - NODE_ENV=production
       - PORT=3000
     restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     deploy:
       resources:
         limits:

@@ -22,6 +22,7 @@ function getRandomDate() {
 }
 
 export const options = {
+  discardResponseBodies: true,
   scenarios: {
     constantRequestsPerSecond: {
       executor: "constant-arrival-rate",
