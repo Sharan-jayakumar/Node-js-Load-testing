@@ -88,7 +88,7 @@ done
 
 ```bash
 echo "concurrency,total_requests,rps,approx_duration_s,error_rate,p95_ms,p99_ms" > test_reports/k6_summary.csv
-for f in out_c*.json; do
+for f in test_reports/out_c*.json; do
   c=$(sed -E 's/.*out_c([0-9]+)\.json/\1/' <<<"$f")
 
   count=$(jq -r '.metrics.http_reqs.count // 0' "$f")
