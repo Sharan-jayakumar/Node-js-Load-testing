@@ -89,7 +89,7 @@ done
 ## **3. Convert k6 JSON Outputs to CSV**
 
 ```bash
-echo "concurrency,total_requests,rps,approx_duration_s,error_rate,p95_ms,p99_ms" > test_reports/k6_summary.csv
+echo "concurrency,total_requests,rps,approx_duration_s,error_rate,p90_ms,p95_ms,avg_ms,max_ms" > test_reports/k6_summary.csv
 for f in test_reports/out_c*.json; do
   c=$(sed -E 's/.*out_c([0-9]+)\.json/\1/' <<<"$f")
 
@@ -100,14 +100,25 @@ for f in test_reports/out_c*.json; do
   err=$(jq -r '.metrics.http_req_failed.rate? // .metrics.http_req_failed.value? // 0' "$f")
 
   # Prefer successful responses bucket if present, else overall
-  p95=$(jq -r '
+  p90=$(jq -r '
     .metrics["http_req_duration{expected_response:true}"]["p(90)"]? //
     .metrics.http_req_duration["p(90)"]? //
     ""' "$f")
 
-  p99=$(jq -r '
+  p95=$(jq -r '
     .metrics["http_req_duration{expected_response:true}"]["p(95)"]? //
     .metrics.http_req_duration["p(95)"]? //
+    ""' "$f")
+
+  # Get average and max request duration
+  avg=$(jq -r '
+    .metrics["http_req_duration{expected_response:true}"]["avg"]? //
+    .metrics.http_req_duration["avg"]? //
+    ""' "$f")
+
+  max=$(jq -r '
+    .metrics["http_req_duration{expected_response:true}"]["max"]? //
+    .metrics.http_req_duration["max"]? //
     ""' "$f")
 
   # Approx duration = total_requests / rps (rounded to 3 decimals)
@@ -117,7 +128,7 @@ for f in test_reports/out_c*.json; do
     if $r > 0 then ((($c / $r) * 1000 | round) / 1000) else 0 end
   ' "$f")
 
-  echo "$c,$count,$rps,$dur,$err,$p95,$p99" >> test_reports/k6_summary.csv
+  echo "$c,$count,$rps,$dur,$err,$p90,$p95,$avg,$max" >> test_reports/k6_summary.csv
 done
 ```
 
