@@ -23,11 +23,13 @@ function getRandomDate() {
 
 export const options = {
   scenarios: {
-    fixedN: {
-      executor: "shared-iterations",
-      vus: C,
-      iterations: N,
-      maxDuration: __ENV.MAXD || "5m",
+    constantRequestsPerSecond: {
+      executor: "constant-arrival-rate",
+      rate: C,
+      timeUnit: "1s", // Rate per second
+      duration: `${Math.ceil(N / C)}s`, // Calculate duration
+      preAllocatedVUs: C, // Pre-allocate VUs for efficiency
+      maxVUs: C * 2, // Maximum VUs if needed
     },
   },
   thresholds: {
