@@ -2,7 +2,7 @@
 
 ## **Configuration**
 
-- **N (Total Requests per run)**: 5000 (constant)
+- **N (Total Requests per run)**: 10000 (constant)
 - **C (Concurrency)**: Incremental per run → 100, 200, 500, 1000
 - **Thresholds**:
   - Error rate `< 1%`
@@ -69,7 +69,7 @@ export default function () {
 Run a single test:
 
 ```bash
-k6 run load_test.js -e N=5000 -e C=100 --summary-export test_reports/out_c100.json
+k6 run load_test.js -e N=10000 -e C=500 --summary-export test_reports/out_c500.json
 ```
 
 ---
@@ -77,9 +77,9 @@ k6 run load_test.js -e N=5000 -e C=100 --summary-export test_reports/out_c100.js
 ## **2. Sweep Concurrency Values**
 
 ```bash
-for c in 100 200 500 1000; do
+for c in 500 600 1000 2000; do
   k6 run load_test.js \
-    -e N=5000 -e C=$c -e MAXD=5m \
+    -e N=10000 -e C=$c -e MAXD=5m \
     --summary-export "test_reports/out_c${c}.json"
 done
 ```
@@ -148,8 +148,8 @@ done
 Run:
 
 ```bash
-./monitor_docker.sh node-load-testing-app > test_reports/usage_c100.csv & MON_PID=$!
-k6 run load_test.js -e N=5000 -e C=100 --summary-export test_reports/out_c100.json
+./monitor_docker.sh node-load-testing-app > test_reports/usage_c500.csv & MON_PID=$!
+k6 run load_test.js -e N=10000 -e C=500 --summary-export test_reports/out_c500.json
 kill $MON_PID
 ```
 
