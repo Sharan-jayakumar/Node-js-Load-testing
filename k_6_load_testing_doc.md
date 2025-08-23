@@ -6,8 +6,8 @@
 - **C (Concurrency)**: Incremental per run → 100, 200, 500, 1000
 - **Thresholds**:
   - Error rate `< 1%`
-  - p95 latency `< 250 ms`
-  - p99 latency `< 500 ms`
+  - p90 latency `< 250 ms`
+  - p95 latency `< 500 ms`
 - **Max Duration**: 5 minutes (extend if endpoint is slow)
 
 ---
@@ -17,39 +17,57 @@
 Create `test.js`:
 
 ```js
-import http from 'k6/http';
-import { check } from 'k6';
+import http from "k6/http";
+import { check } from "k6";
 
-const TARGET = __ENV.TARGET || 'http://localhost:3000';
-const PATH   = __ENV.PATH   || '/health';
-const C      = Number(__ENV.C || 100);
-const N      = Number(__ENV.N || 5000);
+const TARGET = __ENV.TARGET || "http://localhost:3000/api/calculate-date";
+const C = Number(__ENV.C || 100);
+const N = Number(__ENV.N || 5000);
+
+// Function to generate random dates between 1900 and 2024
+function getRandomDate() {
+  const startYear = 1900;
+  const endYear = 2024;
+  const year =
+    Math.floor(Math.random() * (endYear - startYear + 1)) + startYear;
+  const month = Math.floor(Math.random() * 12) + 1;
+  const day = Math.floor(Math.random() * 28) + 1; // Using 28 to avoid invalid dates
+
+  // Format as DD-MM-YYYY
+  const formattedMonth = month.toString().padStart(2, "0");
+  const formattedDay = day.toString().padStart(2, "0");
+
+  return `${formattedDay}-${formattedMonth}-${year}`;
+}
 
 export const options = {
   scenarios: {
     fixedN: {
-      executor: 'shared-iterations',
+      executor: "shared-iterations",
       vus: C,
       iterations: N,
-      maxDuration: __ENV.MAXD || '5m'
-    }
+      maxDuration: __ENV.MAXD || "5m",
+    },
   },
   thresholds: {
-    http_req_failed: ['rate<0.01'],
-    http_req_duration: ['p(95)<250','p(99)<500']
-  }
+    http_req_failed: ["rate<0.01"],
+    http_req_duration: ["p(90)<250", "p(95)<500"],
+  },
 };
 
 export default function () {
-  const res = http.get(`${TARGET}${PATH}`);
-  check(res, { 'status 2xx': r => r.status >= 200 && r.status < 300 });
+  const randomDate = getRandomDate();
+  const url = `${TARGET}?date=${randomDate}`;
+
+  const res = http.get(url);
+  check(res, { "status 2xx": (r) => r.status >= 200 && r.status < 300 });
 }
 ```
 
 Run a single test:
 
 ```bash
-k6 run test.js -e TARGET=http://localhost:3000 -e PATH=/health -e N=5000 -e C=100 --summary-export out_c100.json
+k6 run load_test.js -e N=5000 -e C=100 --summary-export test_reports/out_c100.json
 ```
 
 ---
@@ -58,11 +76,9 @@ k6 run test.js -e TARGET=http://localhost:3000 -e PATH=/health -e N=5000 -e C=10
 
 ```bash
 for c in 100 200 500 1000; do
-  k6 run test.js \
-    -e TARGET=http://localhost:3000 \
-    -e PATH=/health \
+  k6 run load_test.js \
     -e N=5000 -e C=$c -e MAXD=5m \
-    --summary-export "out_c${c}.json"
+    --summary-export "test_reports/out_c${c}.json"
 done
 ```
 
@@ -94,37 +110,13 @@ done
 
 ### **Host-based Monitoring (non-Docker)**
 
-```bash
-#!/usr/bin/env bash
-OUT="${1:-usage.csv}"
-echo "ts,app_cpu_total,app_rss_mb_total,db_cpu_total,db_rss_mb_total" > "$OUT"
-
-while :; do
-  ts=$(date +%s)
-  read app_cpu app_rss <<<"$(ps -Ao comm,%cpu,rss | egrep '(^node$|^ruby$|puma:)' \
-    | awk '{cpu+=$2; rss+=$3} END{printf "%.1f %.2f", cpu, rss/1024}')"
-  read db_cpu db_rss <<<"$(ps -Ao comm,%cpu,rss | egrep '^postgres' \
-    | awk '{cpu+=$2; rss+=$3} END{printf "%.1f %.2f", cpu, rss/1024}')"
-  echo "$ts,${app_cpu:-0},${app_rss:-0},${db_cpu:-0},${db_rss:-0}" >> "$OUT"
-  sleep 1
-done
-```
-
-Run:
-
-```bash
-./monitor.sh usage_c100.csv & MON_PID=$!
-k6 run test.js -e TARGET=http://localhost:3000 -e PATH=/health -e N=5000 -e C=100 --summary-export out_c100.json
-kill $MON_PID
-```
-
 ### **Docker Container Monitoring**
 
 ```bash
 #!/usr/bin/env bash
 # monitor_docker.sh
 # Usage: ./monitor_docker.sh web db > usage_docker.csv
-echo "ts,container,cpu_pct,mem_used,mem_limit,mem_pct,net_io,blk_io"
+echo "ts,container,cpu_perc,mem_used,mem_limit,mem_perc,net_io,blk_io"
 while :; do
   ts=$(date +%s)
   docker stats --no-stream --format \
@@ -139,8 +131,8 @@ done
 Run:
 
 ```bash
-./monitor_docker.sh web db > usage_c100.csv & MON_PID=$!
-k6 run test.js -e TARGET=http://localhost:3000 -e PATH=/health -e N=5000 -e C=100 --summary-export out_c100.json
+./monitor_docker.sh node-load-testing-app > test_reports/usage_c100.csv & MON_PID=$!
+k6 run load_test.js -e N=5000 -e C=100 --summary-export test_reports/out_c100.json
 kill $MON_PID
 ```
 

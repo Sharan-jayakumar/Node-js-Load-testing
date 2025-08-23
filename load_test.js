@@ -1,0 +1,45 @@
+import http from "k6/http";
+import { check } from "k6";
+
+const TARGET = __ENV.TARGET || "http://localhost:3000/api/calculate-date";
+const C = Number(__ENV.C || 100);
+const N = Number(__ENV.N || 5000);
+
+// Function to generate random dates between 1900 and 2024
+function getRandomDate() {
+  const startYear = 1900;
+  const endYear = 2024;
+  const year =
+    Math.floor(Math.random() * (endYear - startYear + 1)) + startYear;
+  const month = Math.floor(Math.random() * 12) + 1;
+  const day = Math.floor(Math.random() * 28) + 1; // Using 28 to avoid invalid dates
+
+  // Format as DD-MM-YYYY
+  const formattedMonth = month.toString().padStart(2, "0");
+  const formattedDay = day.toString().padStart(2, "0");
+
+  return `${formattedDay}-${formattedMonth}-${year}`;
+}
+
+export const options = {
+  scenarios: {
+    fixedN: {
+      executor: "shared-iterations",
+      vus: C,
+      iterations: N,
+      maxDuration: __ENV.MAXD || "5m",
+    },
+  },
+  thresholds: {
+    http_req_failed: ["rate<0.01"],
+    http_req_duration: ["p(90)<250", "p(95)<500"],
+  },
+};
+
+export default function () {
+  const randomDate = getRandomDate();
+  const url = `${TARGET}?date=${randomDate}`;
+
+  const res = http.get(url);
+  check(res, { "status 2xx": (r) => r.status >= 200 && r.status < 300 });
+}
