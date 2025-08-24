@@ -30,17 +30,14 @@ export const options = {
       rate: C,
       timeUnit: "1s",
       duration: `${Math.ceil(N / C)}s`,
-      preAllocatedVUs: 100,
+      preAllocatedVUs: 500,
       maxVUs: 1000,
       gracefulStop: "10s",
     },
   },
   thresholds: {
     http_req_failed: ["rate<0.01"],
-    http_req_duration: [
-      { threshold: "p(95)<250", abortOnFail: true },
-      { threshold: "p(99)<500", abortOnFail: true },
-    ],
+    http_req_duration: ["p(95)<250", "p(99)<500"],
   },
 };
 
