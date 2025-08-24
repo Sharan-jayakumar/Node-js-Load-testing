@@ -43,18 +43,30 @@ function getRandomDate() {
 export const options = {
   discardResponseBodies: true,
   scenarios: {
-    constantRequestsPerSecond: {
+    // Throughput Testing (RPS-based)
+    throughputTest: {
       executor: "constant-arrival-rate",
       rate: C,
-      timeUnit: "1s", // Rate per second
-      duration: `${Math.ceil(N / C)}s`, // Calculate duration
-      preAllocatedVUs: 100, // Pre-allocate VUs for efficiency
-      maxVUs: 1000, // Maximum VUs if needed
+      timeUnit: "1s",
+      duration: `${Math.ceil(N / C)}s`,
+      preAllocatedVUs: 100,
+      maxVUs: 1000,
+      gracefulStop: "10s",
+    },
+    // Concurrency Testing (VU-based)
+    concurrencyTest: {
+      executor: "constant-vus",
+      vus: C,
+      duration: "30s", // Fixed duration for concurrency
+      gracefulStop: "10s",
     },
   },
   thresholds: {
     http_req_failed: ["rate<0.01"],
-    http_req_duration: ["p(90)<250", "p(95)<500"],
+    http_req_duration: [
+      { threshold: "p(95)<250", abortOnFail: true },
+      { threshold: "p(99)<500", abortOnFail: true },
+    ],
   },
 };
 
