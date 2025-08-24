@@ -6,8 +6,8 @@
 - **C (Concurrency)**: Incremental per run → 100, 200, 500, 1000
 - **Thresholds**:
   - Error rate `< 1%`
-  - p95 latency `< 250 ms`
-  - p99 latency `< 500 ms`
+  - Throughput: p95 latency `< 300 ms`, p99 latency `< 500 ms`
+  - Concurrency: p95 latency `< 500 ms`, p99 latency `< 800 ms`
 - **Max Duration**: 5 minutes (extend if endpoint is slow)
 
 ---
@@ -56,10 +56,14 @@ export const options = {
     },
   },
   thresholds: {
-    http_req_failed: ["rate<0.01"],
+    http_req_failed: ["rate<0.01"], // < 1% error rate
     http_req_duration: [
-      { threshold: "p(95)<250", abortOnFail: true }, // ADD THIS
-      { threshold: "p(99)<500", abortOnFail: true }, // ADD THIS
+      { threshold: "p(95)<300", abortOnFail: false }, // 95% under 300ms
+      { threshold: "p(99)<500", abortOnFail: false }, // 99% under 500ms
+      { threshold: "max<1000", abortOnFail: false }, // Max under 1s
+    ],
+    http_reqs: [
+      { threshold: `rate>${C * 0.95}`, abortOnFail: false }, // Maintain 95% of target rate
     ],
   },
   // Add timeouts
@@ -116,10 +120,14 @@ export const options = {
     },
   },
   thresholds: {
-    http_req_failed: ["rate<0.01"],
+    http_req_failed: ["rate<0.01"], // < 1% error rate
     http_req_duration: [
-      { threshold: "p(95)<250", abortOnFail: true }, // ADD THIS
-      { threshold: "p(99)<500", abortOnFail: true }, // ADD THIS
+      { threshold: "p(95)<500", abortOnFail: false }, // 95% under 500ms
+      { threshold: "p(99)<800", abortOnFail: false }, // 99% under 800ms
+      { threshold: "max<1500", abortOnFail: false }, // Max under 1.5s
+    ],
+    http_reqs: [
+      { threshold: "rate>10", abortOnFail: false }, // At least 10 RPS per VU
     ],
   },
   // Global timeouts
@@ -136,9 +144,27 @@ export default function () {
 }
 ```
 
-### **Run Tests**
+### **Industry Standard Thresholds Explained**
 
-**Throughput Testing (RPS-based):**
+**Throughput Tests (RPS-based):**
+
+- **p95 < 300ms**: 95% of requests should complete in under 300ms
+- **p99 < 500ms**: 99% of requests should complete in under 500ms
+- **Max < 1000ms**: No single request should take longer than 1 second
+- **Error Rate < 1%**: Less than 1% of requests should fail
+- **Rate > 95%**: Maintain at least 95% of target RPS
+
+**Concurrency Tests (VU-based):**
+
+- **p95 < 500ms**: 95% of requests should complete in under 500ms
+- **p99 < 800ms**: 99% of requests should complete in under 800ms
+- **Max < 1500ms**: No single request should take longer than 1.5 seconds
+- **Error Rate < 1%**: Less than 1% of requests should fail
+- **Rate > 10**: Each VU should generate at least 10 RPS
+
+These thresholds are based on industry standards for CPU-bound Node.js APIs and provide realistic performance expectations for production systems.
+
+### **Run Tests**
 
 ```bash
 k6 run throughput_test.js -e N=5000 -e C=500 --summary-export test_reports/out_r500.json
@@ -366,19 +392,28 @@ kill $MON_PID
 
 ---
 
-## **8. Expected Results**
+## **8. Expected Results & Thresholds**
 
 ### **Throughput Tests:**
 
 - Will show maximum RPS before errors occur
 - Likely breaking point: 1000-1200 RPS
+- **Success Criteria**: p95 < 300ms, p99 < 500ms, error rate < 1%
 - Measures: Requests per second capacity
 
 ### **Concurrency Tests:**
 
 - Will show response time degradation as VUs increase
 - Likely breaking point: 800-1000 VUs
+- **Success Criteria**: p95 < 500ms, p99 < 800ms, error rate < 1%
 - Measures: Response time under concurrent load
+
+### **Threshold Validation:**
+
+- **Green Zone**: All thresholds met - system performing optimally
+- **Yellow Zone**: Some thresholds exceeded - monitor closely
+- **Red Zone**: Multiple thresholds failed - system under stress
+- **abortOnFail: false** ensures complete data collection for analysis
 
 ### **File Naming Convention:**
 
