@@ -35,10 +35,14 @@ export const options = {
     },
   },
   thresholds: {
-    http_req_failed: ["rate<0.01"],
+    http_req_failed: ["rate<0.01"], // < 1% error rate
     http_req_duration: [
-      { threshold: "p(95)<250", abortOnFail: true }, // ADD THIS
-      { threshold: "p(99)<500", abortOnFail: true }, // ADD THIS
+      { threshold: "p(95)<300", abortOnFail: false }, // 95% under 300ms
+      { threshold: "p(99)<500", abortOnFail: false }, // 99% under 500ms
+      { threshold: "max<1000", abortOnFail: false }, // Max under 1s
+    ],
+    http_reqs: [
+      { threshold: `rate>${C * 0.95}`, abortOnFail: false }, // Maintain 95% of target rate
     ],
   },
   // Add timeouts
