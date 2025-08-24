@@ -50,15 +50,22 @@ export const options = {
       rate: C,
       timeUnit: "1s",
       duration: `${Math.ceil(N / C)}s`,
-      preAllocatedVUs: 500,
-      maxVUs: 1000,
+      preAllocatedVUs: Math.min(100, C), // Start reasonable
+      maxVUs: Math.min(500, C * 2), // Cap based on rate
       gracefulStop: "10s",
     },
   },
   thresholds: {
     http_req_failed: ["rate<0.01"],
-    http_req_duration: ["p(95)<250", "p(99)<500"],
+    http_req_duration: [
+      { threshold: "p(95)<250", abortOnFail: true }, // ADD THIS
+      { threshold: "p(99)<500", abortOnFail: true }, // ADD THIS
+    ],
   },
+  // Add timeouts
+  httpTimeout: "30s",
+  httpReqTimeout: "25s",
+  httpRespTimeout: "5s",
 };
 
 export default function () {
@@ -104,23 +111,26 @@ export const options = {
     concurrencyTest: {
       executor: "constant-vus",
       vus: C,
-      duration: "30s", // Fixed duration for concurrency
+      duration: "60s",
       gracefulStop: "10s",
     },
   },
   thresholds: {
     http_req_failed: ["rate<0.01"],
     http_req_duration: [
-      { threshold: "p(95)<250", abortOnFail: true },
-      { threshold: "p(99)<500", abortOnFail: true },
+      { threshold: "p(95)<250", abortOnFail: true }, // ADD THIS
+      { threshold: "p(99)<500", abortOnFail: true }, // ADD THIS
     ],
   },
+  // Global timeouts
+  httpTimeout: "30s",
+  httpReqTimeout: "25s",
+  httpRespTimeout: "5s",
 };
 
 export default function () {
   const randomDate = getRandomDate();
   const url = `${TARGET}?date=${randomDate}`;
-
   const res = http.get(url);
   check(res, { "status 2xx": (r) => r.status >= 200 && r.status < 300 });
 }

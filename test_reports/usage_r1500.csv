@@ -1,3 +1,0 @@
-ts,container,cpu_perc,mem_used,mem_limit,mem_perc,net_io,blk_io
-1756027395,node-load-testing-app,100.52%,52.23MiB / 2GiB,2.55%,390kB / 1.47MB,0B / 4.1kB
-1756027397,node-load-testing-app,58.03%,54.76MiB / 2GiB,2.67%,1.31MB / 6.51MB,0B / 4.1kB

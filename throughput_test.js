@@ -24,21 +24,27 @@ function getRandomDate() {
 export const options = {
   discardResponseBodies: true,
   scenarios: {
-    // Only run the specified test type
     throughputTest: {
       executor: "constant-arrival-rate",
       rate: C,
       timeUnit: "1s",
       duration: `${Math.ceil(N / C)}s`,
-      preAllocatedVUs: 500,
-      maxVUs: 1000,
+      preAllocatedVUs: Math.min(100, C), // Start reasonable
+      maxVUs: Math.min(500, C * 2), // Cap based on rate
       gracefulStop: "10s",
     },
   },
   thresholds: {
     http_req_failed: ["rate<0.01"],
-    http_req_duration: ["p(95)<250", "p(99)<500"],
+    http_req_duration: [
+      { threshold: "p(95)<250", abortOnFail: true }, // ADD THIS
+      { threshold: "p(99)<500", abortOnFail: true }, // ADD THIS
+    ],
   },
+  // Add timeouts
+  httpTimeout: "30s",
+  httpReqTimeout: "25s",
+  httpRespTimeout: "5s",
 };
 
 export default function () {
