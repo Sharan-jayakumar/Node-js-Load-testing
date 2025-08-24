@@ -24,7 +24,7 @@ function getRandomDate() {
 export const options = {
   discardResponseBodies: true,
   scenarios: {
-    // Throughput Testing (RPS-based)
+    // Only run the specified test type
     throughputTest: {
       executor: "constant-arrival-rate",
       rate: C,
@@ -32,13 +32,6 @@ export const options = {
       duration: `${Math.ceil(N / C)}s`,
       preAllocatedVUs: 100,
       maxVUs: 1000,
-      gracefulStop: "10s",
-    },
-    // Concurrency Testing (VU-based)
-    concurrencyTest: {
-      executor: "constant-vus",
-      vus: C,
-      duration: "30s", // Fixed duration for concurrency
       gracefulStop: "10s",
     },
   },

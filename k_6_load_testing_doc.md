@@ -6,15 +6,17 @@
 - **C (Concurrency)**: Incremental per run → 100, 200, 500, 1000
 - **Thresholds**:
   - Error rate `< 1%`
-  - p90 latency `< 250 ms`
-  - p95 latency `< 500 ms`
+  - p95 latency `< 250 ms`
+  - p99 latency `< 500 ms`
 - **Max Duration**: 5 minutes (extend if endpoint is slow)
 
 ---
 
-## **1. k6 Test Script**
+## **1. k6 Test Scripts**
 
-Create `test.js`:
+### **Throughput Testing (RPS-based)**
+
+Create `throughput_test.js`:
 
 ```js
 import http from "k6/http";
@@ -43,7 +45,6 @@ function getRandomDate() {
 export const options = {
   discardResponseBodies: true,
   scenarios: {
-    // Throughput Testing (RPS-based)
     throughputTest: {
       executor: "constant-arrival-rate",
       rate: C,
@@ -53,7 +54,56 @@ export const options = {
       maxVUs: 1000,
       gracefulStop: "10s",
     },
-    // Concurrency Testing (VU-based)
+  },
+  thresholds: {
+    http_req_failed: ["rate<0.01"],
+    http_req_duration: [
+      { threshold: "p(95)<250", abortOnFail: true },
+      { threshold: "p(99)<500", abortOnFail: true },
+    ],
+  },
+};
+
+export default function () {
+  const randomDate = getRandomDate();
+  const url = `${TARGET}?date=${randomDate}`;
+
+  const res = http.get(url);
+  check(res, { "status 2xx": (r) => r.status >= 200 && r.status < 300 });
+}
+```
+
+### **Concurrency Testing (VU-based)**
+
+Create `concurrency_test.js`:
+
+```js
+import http from "k6/http";
+import { check } from "k6";
+
+const TARGET = __ENV.TARGET || "http://localhost:3000/api/calculate-date";
+const C = Number(__ENV.C || 100);
+const N = Number(__ENV.N || 5000);
+
+// Function to generate random dates between 1900 and 2024
+function getRandomDate() {
+  const startYear = 1900;
+  const endYear = 2024;
+  const year =
+    Math.floor(Math.random() * (endYear - startYear + 1)) + startYear;
+  const month = Math.floor(Math.random() * 12) + 1;
+  const day = Math.floor(Math.random() * 28) + 1; // Using 28 to avoid invalid dates
+
+  // Format as DD-MM-YYYY
+  const formattedMonth = month.toString().padStart(2, "0");
+  const formattedDay = day.toString().padStart(2, "0");
+
+  return `${formattedDay}-${formattedMonth}-${year}`;
+}
+
+export const options = {
+  discardResponseBodies: true,
+  scenarios: {
     concurrencyTest: {
       executor: "constant-vus",
       vus: C,
@@ -79,22 +129,41 @@ export default function () {
 }
 ```
 
-Run a single test:
+### **Run Tests**
+
+**Throughput Testing (RPS-based):**
 
 ```bash
-k6 run load_test.js -e N=5000 -e C=500 --scenario throughputTest --summary-export test_reports/out_r500.json
+k6 run throughput_test.js -e N=5000 -e C=500 --summary-export test_reports/out_r500.json
+```
+
+**Concurrency Testing (VU-based):**
+
+```bash
+k6 run concurrency_test.js -e N=5000 -e C=500 --summary-export test_reports/out_c500.json
 ```
 
 ---
 
 ## **2. Sweep Concurrency Values**
 
+### **Throughput Testing Sweep:**
+
 ```bash
 for c in 500 600 1000 2000; do
-  k6 run load_test.js \
-    -e N=5000 -e C=$c -e MAXD=5m \
-    --scenario throughputTest \
+  k6 run throughput_test.js \
+    -e N=5000 -e C=$c \
     --summary-export "test_reports/out_r${c}.json"
+done
+```
+
+### **Concurrency Testing Sweep:**
+
+```bash
+for c in 500 600 1000 2000; do
+  k6 run concurrency_test.js \
+    -e N=5000 -e C=$c \
+    --summary-export "test_reports/out_c${c}.json"
 done
 ```
 
@@ -102,8 +171,10 @@ done
 
 ## **3. Convert k6 JSON Outputs to CSV**
 
+### **For Throughput Tests (out_r\*.json):**
+
 ```bash
-echo "concurrency,total_requests,rps,approx_duration_s,error_rate,p90_ms,p95_ms,avg_ms,max_ms" > test_reports/k6_summary.csv
+echo "concurrency,total_requests,rps,approx_duration_s,error_rate,p90_ms,p95_ms,avg_ms,max_ms" > test_reports/throughput_summary.csv
 for f in test_reports/out_r*.json; do
   c=$(sed -E 's/.*out_r([0-9]+)\.json/\1/' <<<"$f")
 
@@ -143,15 +214,60 @@ for f in test_reports/out_r*.json; do
     if $r > 0 then ((($c / $r) * 1000 | round) / 1000) else 0 end
   ' "$f")
 
-  echo "$c,$count,$rps,$dur,$err,$p90,$p95,$avg,$max" >> test_reports/k6_summary.csv
+  echo "$c,$count,$rps,$dur,$err,$p90,$p95,$avg,$max" >> test_reports/throughput_summary.csv
+done
+```
+
+### **For Concurrency Tests (out_c\*.json):**
+
+```bash
+echo "concurrency,total_requests,rps,approx_duration_s,error_rate,p90_ms,p95_ms,avg_ms,max_ms" > test_reports/concurrency_summary.csv
+for f in test_reports/out_c*.json; do
+  c=$(sed -E 's/.*out_c([0-9]+)\.json/\1/' <<<"$f")
+
+  count=$(jq -r '.metrics.http_reqs.count // 0' "$f")
+  rps=$(jq -r '.metrics.http_reqs.rate // 0' "$f")
+
+  # Convert error rate from decimal (0-1) to percentage (0.00-100.00)
+  failed_decimal=$(jq -r '.metrics.http_req_failed.value // 0' "$f")
+  err=$(awk -v failed="$failed_decimal" 'BEGIN {printf "%.2f", failed*100}')
+
+  # Prefer successful responses bucket if present, else overall
+  p90=$(jq -r '
+    .metrics["http_req_duration{expected_response:true}"]["p(90)"]? //
+    .metrics.http_req_duration["p(90)"]? //
+    ""' "$f")
+
+  p95=$(jq -r '
+    .metrics["http_req_duration{expected_response:true}"]["p(95)"]? //
+    .metrics.http_req_duration["p(95)"]? //
+    ""' "$f")
+
+  # Get average and max request duration
+  avg=$(jq -r '
+    .metrics["http_req_duration{expected_response:true}"]["avg"]? //
+    .metrics.http_req_duration["avg"]? //
+    ""' "$f")
+
+  max=$(jq -r '
+    .metrics["http_req_duration{expected_response:true}"]["max"]? //
+    .metrics.http_req_duration["max"]? //
+    ""' "$f")
+
+  # Approx duration = total_requests / rps (rounded to 3 decimals)
+  dur=$(jq -r '
+    (.metrics.http_reqs.count // 0) as $c |
+    (.metrics.http_reqs.rate  // 0) as $r |
+    if $r > 0 then ((($c / $r) * 1000 | round) / 1000) else 0 end
+  ' "$f")
+
+  echo "$c,$count,$rps,$dur,$err,$p90,$p95,$avg,$max" >> test_reports/concurrency_summary.csv
 done
 ```
 
 ---
 
 ## **4. CPU/RAM Monitoring Scripts**
-
-### **Host-based Monitoring (non-Docker)**
 
 ### **Docker Container Monitoring**
 
@@ -171,35 +287,41 @@ while :; do
 done
 ```
 
-Run:
+### **Run Monitoring with Tests:**
+
+**Throughput Testing:**
 
 ```bash
 ./monitor_docker.sh node-load-testing-app > test_reports/usage_r500.csv & MON_PID=$!
-k6 run load_test.js -e N=5000 -e C=500 --scenario throughputTest --summary-export test_reports/out_r500.json
+k6 run throughput_test.js -e N=5000 -e C=500 --summary-export test_reports/out_r500.json
+kill $MON_PID
+```
+
+**Concurrency Testing:**
+
+```bash
+./monitor_docker.sh node-load-testing-app > test_reports/usage_c500.csv & MON_PID=$!
+k6 run concurrency_test.js -e N=5000 -e C=500 --summary-export test_reports/out_c500.json
 kill $MON_PID
 ```
 
 ---
 
-## **5. Recommended Scenarios**
+## **5. Test Types Explained**
 
-**CPU-light:**
+### **Throughput Testing (RPS-based)**
 
-1. Node.js + Express (single)
-2. Node.js + Express + PM2 (4 cores)
-3. NestJS + Fastify (single)
-4. NestJS + Fastify + PM2 (4 cores)
-5. Rails + Puma (single)
-6. Rails + Puma (cluster: 4 cores)
+- **Purpose**: Test how many requests per second the server can handle
+- **Executor**: `constant-arrival-rate`
+- **What it measures**: Server's capacity to process requests at a steady rate
+- **Use case**: Production capacity planning, SLA validation
 
-**DB-read:**
+### **Concurrency Testing (VU-based)**
 
-1. Node.js + Express + Sequelize (single)
-2. Node.js + Express + Sequelize + PM2 (2 cores)
-3. NestJS + Fastify + TypeORM (single)
-4. NestJS + Fastify + TypeORM + PM2 (2 cores)
-5. Rails + Puma + ActiveRecord (single)
-6. Rails + Puma + ActiveRecord (cluster: 2 cores)
+- **Purpose**: Test how the server performs under concurrent user load
+- **Executor**: `constant-vus`
+- **What it measures**: Response time degradation as concurrent users increase
+- **Use case**: User experience validation, performance under load
 
 ---
 
@@ -212,15 +334,47 @@ kill $MON_PID
   - You want to mimic production container behavior.
 - If containerizing:
   - Use arm64 images.
-  - Allocate \~2 cores / 4GB to Docker Desktop.
+  - Allocate ~2 cores / 4GB to Docker Desktop.
   - Set per-container CPU/mem limits.
 
 ---
 
 ## **7. Run Order per Scenario**
 
-1. Start monitoring: `./monitor.sh usage_c${C}.csv & MON_PID=$!` _(or \***\*\`\`\*\*** for Docker)_
-2. Run k6: `k6 run test.js -e TARGET=... -e PATH=... -e N=5000 -e C=${C} --summary-export out_r${C}.json`
+### **Throughput Testing:**
+
+1. Start monitoring: `./monitor_docker.sh node-load-testing-app > test_reports/usage_r${C}.csv & MON_PID=$!`
+2. Run k6: `k6 run throughput_test.js -e N=5000 -e C=${C} --summary-export test_reports/out_r${C}.json`
 3. Stop monitoring: `kill $MON_PID`
 4. Repeat for all C values.
-5. Extract CSV after all runs.
+5. Extract CSV: `./convert_to_csv.sh throughput`
+
+### **Concurrency Testing:**
+
+1. Start monitoring: `./monitor_docker.sh node-load-testing-app > test_reports/usage_c${C}.csv & MON_PID=$!`
+2. Run k6: `k6 run concurrency_test.js -e N=5000 -e C=${C} --summary-export test_reports/out_c${C}.json`
+3. Stop monitoring: `kill $MON_PID`
+4. Repeat for all C values.
+5. Extract CSV: `./convert_to_csv.sh concurrency`
+
+---
+
+## **8. Expected Results**
+
+### **Throughput Tests:**
+
+- Will show maximum RPS before errors occur
+- Likely breaking point: 1000-1200 RPS
+- Measures: Requests per second capacity
+
+### **Concurrency Tests:**
+
+- Will show response time degradation as VUs increase
+- Likely breaking point: 800-1000 VUs
+- Measures: Response time under concurrent load
+
+### **File Naming Convention:**
+
+- **Throughput**: `out_r{C}.json` and `usage_r{C}.csv`
+- **Concurrency**: `out_c{C}.json` and `usage_c{C}.csv`
+- **Examples**: `out_r1000.json`, `usage_c500.csv`

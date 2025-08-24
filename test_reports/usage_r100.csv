@@ -1,0 +1,21 @@
+ts,container,cpu_perc,mem_used,mem_limit,mem_perc,net_io,blk_io
+1756021270,node-load-testing-app,20.08%,29.04MiB / 2GiB,1.42%,38.4kB / 131kB,209kB / 4.1kB
+1756021272,node-load-testing-app,18.36%,37.53MiB / 2GiB,1.83%,98.7kB / 436kB,340kB / 4.1kB
+1756021275,node-load-testing-app,13.36%,46.15MiB / 2GiB,2.25%,159kB / 742kB,340kB / 4.1kB
+1756021278,node-load-testing-app,14.57%,47.71MiB / 2GiB,2.33%,219kB / 1.05MB,340kB / 4.1kB
+1756021280,node-load-testing-app,13.06%,48.91MiB / 2GiB,2.39%,279kB / 1.35MB,340kB / 4.1kB
+1756021283,node-load-testing-app,12.93%,49.89MiB / 2GiB,2.44%,340kB / 1.66MB,340kB / 4.1kB
+1756021285,node-load-testing-app,14.51%,50.82MiB / 2GiB,2.48%,401kB / 1.97MB,340kB / 4.1kB
+1756021288,node-load-testing-app,14.97%,51.33MiB / 2GiB,2.51%,461kB / 2.27MB,340kB / 4.1kB
+1756021290,node-load-testing-app,13.54%,50.64MiB / 2GiB,2.47%,522kB / 2.58MB,340kB / 4.1kB
+1756021293,node-load-testing-app,17.10%,51.71MiB / 2GiB,2.52%,582kB / 2.89MB,340kB / 4.1kB
+1756021295,node-load-testing-app,10.94%,51.9MiB / 2GiB,2.53%,642kB / 3.19MB,340kB / 4.1kB
+1756021298,node-load-testing-app,19.92%,51.75MiB / 2GiB,2.53%,702kB / 3.5MB,340kB / 4.1kB
+1756021301,node-load-testing-app,12.49%,51.51MiB / 2GiB,2.52%,762kB / 3.8MB,340kB / 4.1kB
+1756021303,node-load-testing-app,12.98%,51.99MiB / 2GiB,2.54%,823kB / 4.11MB,340kB / 4.1kB
+1756021306,node-load-testing-app,9.23%,51.85MiB / 2GiB,2.53%,883kB / 4.41MB,340kB / 4.1kB
+1756021308,node-load-testing-app,11.57%,52.44MiB / 2GiB,2.56%,943kB / 4.72MB,340kB / 4.1kB
+1756021311,node-load-testing-app,9.24%,52.41MiB / 2GiB,2.56%,1MB / 5.02MB,340kB / 4.1kB
+1756021313,node-load-testing-app,13.58%,52.6MiB / 2GiB,2.57%,1.06MB / 5.33MB,340kB / 4.1kB
+1756021316,node-load-testing-app,10.21%,52.47MiB / 2GiB,2.56%,1.12MB / 5.64MB,340kB / 4.1kB
+1756021318,node-load-testing-app,13.28%,53.14MiB / 2GiB,2.59%,1.18MB / 5.94MB,340kB / 4.1kB
