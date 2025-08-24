@@ -82,7 +82,7 @@ export default function () {
 Run a single test:
 
 ```bash
-k6 run load_test.js -e N=5000 -e C=500 --summary-export test_reports/out_c500.json
+k6 run load_test.js -e N=5000 -e C=500 --scenario throughputTest --summary-export test_reports/out_r500.json
 ```
 
 ---
@@ -93,7 +93,8 @@ k6 run load_test.js -e N=5000 -e C=500 --summary-export test_reports/out_c500.js
 for c in 500 600 1000 2000; do
   k6 run load_test.js \
     -e N=5000 -e C=$c -e MAXD=5m \
-    --summary-export "test_reports/out_c${c}.json"
+    --scenario throughputTest \
+    --summary-export "test_reports/out_r${c}.json"
 done
 ```
 
@@ -103,8 +104,8 @@ done
 
 ```bash
 echo "concurrency,total_requests,rps,approx_duration_s,error_rate,p90_ms,p95_ms,avg_ms,max_ms" > test_reports/k6_summary.csv
-for f in test_reports/out_c*.json; do
-  c=$(sed -E 's/.*out_c([0-9]+)\.json/\1/' <<<"$f")
+for f in test_reports/out_r*.json; do
+  c=$(sed -E 's/.*out_r([0-9]+)\.json/\1/' <<<"$f")
 
   count=$(jq -r '.metrics.http_reqs.count // 0' "$f")
   rps=$(jq -r '.metrics.http_reqs.rate // 0' "$f")
@@ -173,8 +174,8 @@ done
 Run:
 
 ```bash
-./monitor_docker.sh node-load-testing-app > test_reports/usage_c500.csv & MON_PID=$!
-k6 run load_test.js -e N=5000 -e C=500 --summary-export test_reports/out_c500.json
+./monitor_docker.sh node-load-testing-app > test_reports/usage_r500.csv & MON_PID=$!
+k6 run load_test.js -e N=5000 -e C=500 --scenario throughputTest --summary-export test_reports/out_r500.json
 kill $MON_PID
 ```
 
@@ -219,7 +220,7 @@ kill $MON_PID
 ## **7. Run Order per Scenario**
 
 1. Start monitoring: `./monitor.sh usage_c${C}.csv & MON_PID=$!` _(or \***\*\`\`\*\*** for Docker)_
-2. Run k6: `k6 run test.js -e TARGET=... -e PATH=... -e N=5000 -e C=${C} --summary-export out_c${C}.json`
+2. Run k6: `k6 run test.js -e TARGET=... -e PATH=... -e N=5000 -e C=${C} --summary-export out_r${C}.json`
 3. Stop monitoring: `kill $MON_PID`
 4. Repeat for all C values.
 5. Extract CSV after all runs.
