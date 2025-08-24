@@ -42,10 +42,6 @@ export const options = {
       { threshold: "rate>10", abortOnFail: false }, // At least 10 RPS per VU
     ],
   },
-  // Global timeouts
-  httpTimeout: "30s",
-  httpReqTimeout: "25s",
-  httpRespTimeout: "5s",
 };
 
 export default function () {

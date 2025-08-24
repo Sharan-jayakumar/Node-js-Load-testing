@@ -45,10 +45,6 @@ export const options = {
       { threshold: `rate>${C * 0.95}`, abortOnFail: false }, // Maintain 95% of target rate
     ],
   },
-  // Add timeouts
-  httpTimeout: "30s",
-  httpReqTimeout: "25s",
-  httpRespTimeout: "5s",
 };
 
 export default function () {
